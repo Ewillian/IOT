@@ -86,3 +86,35 @@ int main() {
     net->disconnect();
     printf("Done\n");
 }
+
+
+
+
+
+
+//Récupérer la température
+#include "mbed.h"
+
+namespace {
+#define PERIOD_MS 500
+}
+
+static DigitalOut led1(LED1);
+I2C i2c(I2C1_SDA, I2C1_SCL);
+uint8_t lm75_adress = 0x48 << 1;
+
+// main() runs in its own thread in the OS
+// (note the calls to Thread::wait below for delays)
+int main()
+{
+    while (true) {
+        char cmd[2];
+        cmd[0] = 0x00; // adresse registre temperature
+        i2c.write(lm75_adress, cmd, 1);
+        i2c.read(lm75_adress, cmd, 2);
+
+        float temperature = ((cmd[0] << 8 | cmd[1] ) >> 7) * 0.5;
+        printf("Temperature : %f\n", temperature);
+        ThisThread::sleep_for(PERIOD_MS);
+    }
+}
