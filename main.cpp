@@ -65,7 +65,7 @@ int main() {
     data.MQTTVersion = 3;
     data.clientID.cstring = "92f03640-f570-4f80-b618-1b0dd4513f41"; //Généré sur internet
     data.username.cstring = "LeCoqGalmotSeghir";
-    data.password.cstring = "project-iot";
+    data.password.cstring = "0b08240c0f604506ac5b71943ba16c73";
     if ((rc = client.connect(data)) != 0)
         printf("rc from MQTT connect is %d\r\n", rc);
 
