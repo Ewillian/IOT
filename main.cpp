@@ -8,15 +8,22 @@
 NetworkInterface *net;
 
 namespace {
-#define PERIOD_MS 10000
+#define PERIOD_MS 5000
 }
 
 static DigitalOut led1(LED1);
 I2C i2c(I2C1_SDA, I2C1_SCL);
 uint8_t lm75_adress = 0x48 << 1;
 
+AnalogIn moisture(ADC_IN1);
+
+float humidity_max = 0.8;
+
 int arrivedcount = 0;
+
+//On ajoute les topics de température et d'humidité
 const char* topic1 = "LeCoqGalmotSeghir/feeds/projectiotfeeds.tempresult";
+const char* topic2 = "LeCoqGalmotSeghir/feeds/projectiotfeeds.humiresult";
 
 /* Printf the message received and its configuration */
 void messageArrived(MQTT::MessageData& md)
@@ -29,6 +36,9 @@ void messageArrived(MQTT::MessageData& md)
 
 // MQTT demo
 int main() {
+
+	float humidity = 0.0f;
+
 	char cmd[2];
 	cmd[0] = 0x00; // adresse registre temperature
 	i2c.write(lm75_adress, cmd, 1);
@@ -87,18 +97,25 @@ int main() {
     // Subscribe to the same topic we will publish in
     if ((rc = client.subscribe(topic1, MQTT::QOS2, messageArrived)) != 0)
         printf("rc from MQTT subscribe is %d\r\n", rc);
+    else if((rc = client.subscribe(topic2, MQTT::QOS2, messageArrived)) != 0)
+        printf("rc from MQTT subscribe is %d\r\n", rc);
 
     // Send a message with QoS 0
     MQTT::Message message;
 
     // QoS 0
     char buf[100];
+
+    //Boucle qui récupère les valeurs de la température et de l'humidité toutes les 5 secondes
     while(true) {
     	cmd[0] = 0x00; // adresse registre temperature
     	i2c.write(lm75_adress, cmd, 1);
     	i2c.read(lm75_adress, cmd, 2);
     	temperature = ((cmd[0] << 8 | cmd[1] ) >> 7) * 0.5;
 
+    	humidity = moisture.read() * 100 / humidity_max;
+
+    	//Affichage de la température
     	sprintf(buf, "%.2f", temperature);
     	printf("Temperature : %.2f\n", temperature);
 
@@ -109,6 +126,17 @@ int main() {
     	message.payloadlen = strlen(buf)+1;
 
     	rc = client.publish(topic1, message);
+
+    	//Affichage de l'humidité
+    	sprintf(buf, "%.2f", humidity);
+    	printf("Humidity : %.2f\n", humidity);
+    	message.qos = MQTT::QOS0;
+    	message.retained = false;
+    	message.dup = false;
+    	message.payload = (void*)buf;
+    	message.payloadlen = strlen(buf)+1;
+
+    	rc = client.publish(topic2, message);
     	ThisThread::sleep_for(PERIOD_MS);
     }
 
