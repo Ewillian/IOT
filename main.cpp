@@ -7,6 +7,14 @@
 // Network interface
 NetworkInterface *net;
 
+namespace {
+#define PERIOD_MS 10000
+}
+
+static DigitalOut led1(LED1);
+I2C i2c(I2C1_SDA, I2C1_SCL);
+uint8_t lm75_adress = 0x48 << 1;
+
 int arrivedcount = 0;
 const char* topic1 = "LeCoqGalmotSeghir/feeds/projectiotfeeds.tempresult";
 
@@ -21,6 +29,13 @@ void messageArrived(MQTT::MessageData& md)
 
 // MQTT demo
 int main() {
+	char cmd[2];
+	cmd[0] = 0x00; // adresse registre temperature
+	i2c.write(lm75_adress, cmd, 1);
+	i2c.read(lm75_adress, cmd, 2);
+	float temperature = ((cmd[0] << 8 | cmd[1] ) >> 7) * 0.5;
+
+
 	int result;
 
     // Add the border router DNS to the DNS table
@@ -78,15 +93,24 @@ int main() {
 
     // QoS 0
     char buf[100];
-    sprintf(buf, "Hello World!  QoS 0 message from 6TRON\r\n");
+    while(true) {
+    	cmd[0] = 0x00; // adresse registre temperature
+    	i2c.write(lm75_adress, cmd, 1);
+    	i2c.read(lm75_adress, cmd, 2);
+    	temperature = ((cmd[0] << 8 | cmd[1] ) >> 7) * 0.5;
 
-    message.qos = MQTT::QOS0;
-    message.retained = false;
-    message.dup = false;
-    message.payload = (void*)buf;
-    message.payloadlen = strlen(buf)+1;
+    	sprintf(buf, "%.2f", temperature);
+    	printf("Temperature : %.2f\n", temperature);
 
-    rc = client.publish(topic1, message);
+    	message.qos = MQTT::QOS0;
+    	message.retained = false;
+    	message.dup = false;
+    	message.payload = (void*)buf;
+    	message.payloadlen = strlen(buf)+1;
+
+    	rc = client.publish(topic1, message);
+    	ThisThread::sleep_for(PERIOD_MS);
+    }
 
     // yield function is used to refresh the connexion
     // Here we yield until we receive the message we sent
