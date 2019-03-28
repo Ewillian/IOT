@@ -21,9 +21,10 @@ float humidity_max = 0.8;
 
 int arrivedcount = 0;
 
-//On ajoute les topics de température et d'humidité
+//On ajoute les topics de température et d'humidité et on/off
 const char* topic1 = "LeCoqGalmotSeghir/feeds/projectiotfeeds.tempresult";
 const char* topic2 = "LeCoqGalmotSeghir/feeds/projectiotfeeds.humiresult";
+const char* topic3 = "LeCoqGalmotSeghir/feeds/projectiotfeeds.onofftrigger";
 
 /* Printf the message received and its configuration */
 void messageArrived(MQTT::MessageData& md)
@@ -32,9 +33,22 @@ void messageArrived(MQTT::MessageData& md)
     printf("Message arrived: qos %d, retained %d, dup %d, packetid %d\r\n", message.qos, message.retained, message.dup, message.id);
     printf("Payload %.*s\r\n", message.payloadlen, (char*)message.payload);
     ++arrivedcount;
+
+	char temp[20];
+    strncpy(temp, (char *) message.payload, message.payloadlen);
+
+    //allumer ou éteindre la led en fonction de l'état du bouton
+    if (strcmp((const char*) temp, "ON") == 0) {
+    	printf("LED ON\n");
+    	led1 = 1;
+    }else {
+    	(printf("LED OFF\n"));
+    	led1 = 0;
+    }
+
 }
 
-// MQTT demo
+// MQTT
 int main() {
 
 	float humidity = 0.0f;
@@ -95,10 +109,8 @@ int main() {
         printf("rc from MQTT connect is %d\r\n", rc);
 
     // Subscribe to the same topic we will publish in
-    if ((rc = client.subscribe(topic1, MQTT::QOS2, messageArrived)) != 0)
-        printf("rc from MQTT subscribe is %d\r\n", rc);
-    else if((rc = client.subscribe(topic2, MQTT::QOS2, messageArrived)) != 0)
-        printf("rc from MQTT subscribe is %d\r\n", rc);
+    if((rc = client.subscribe(topic3, MQTT::QOS2, messageArrived)) != 0)
+            printf("rc from MQTT subscribe is %d\r\n", rc);
 
     // Send a message with QoS 0
     MQTT::Message message;
@@ -108,6 +120,7 @@ int main() {
 
     //Boucle qui récupère les valeurs de la température et de l'humidité toutes les 5 secondes
     while(true) {
+
     	cmd[0] = 0x00; // adresse registre temperature
     	i2c.write(lm75_adress, cmd, 1);
     	i2c.read(lm75_adress, cmd, 2);
@@ -137,6 +150,7 @@ int main() {
     	message.payloadlen = strlen(buf)+1;
 
     	rc = client.publish(topic2, message);
+    	client.yield(100);
     	ThisThread::sleep_for(PERIOD_MS);
     }
 
